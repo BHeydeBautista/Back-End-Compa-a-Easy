@@ -1,0 +1,107 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import * as bcryptjs from 'bcryptjs';
+import { Repository } from 'typeorm';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UserRole } from './enums/user-role.enum';
+import { User } from './entities/user.entity';
+
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
+
+  async create(createUserDto: CreateUserDto) {
+    const email = createUserDto.email?.trim().toLowerCase();
+    const existing = await this.userRepository.findOne({ where: { email } });
+    if (existing) {
+      throw new BadRequestException('User already exists');
+    }
+
+    let password = createUserDto.password;
+    if (password && !password.startsWith('$2')) {
+      password = await bcryptjs.hash(password, 10);
+    }
+
+    const user = await this.userRepository.save({
+      ...createUserDto,
+      email,
+      password,
+      role: createUserDto.role ?? UserRole.USER,
+    });
+
+    delete (user as any).password;
+    return user;
+  }
+
+  findOneByEmail(email: string, opts?: { withPassword?: boolean }) {
+    const normalizedEmail = email?.trim().toLowerCase();
+
+    if (opts?.withPassword) {
+      return this.userRepository
+        .createQueryBuilder('user')
+        .addSelect('user.password')
+        .where('user.email = :email', { email: normalizedEmail })
+        .getOne();
+    }
+
+    return this.userRepository.findOne({ where: { email: normalizedEmail } });
+  }
+
+  async findAll() {
+    return this.userRepository.find({
+      relations: {
+        rank: true,
+      },
+    });
+  }
+
+  async findOne(id: number) {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: {
+        rank: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const patch: Partial<User> = { ...updateUserDto } as any;
+    if (patch.email) {
+      patch.email = patch.email.trim().toLowerCase();
+    }
+
+    if (patch.password && !patch.password.startsWith('$2')) {
+      patch.password = await bcryptjs.hash(patch.password, 10);
+    }
+
+    await this.userRepository.update({ id }, patch);
+    return this.findOne(id);
+  }
+
+  async remove(id: number) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.userRepository.softDelete({ id });
+    return { ok: true };
+  }
+}
