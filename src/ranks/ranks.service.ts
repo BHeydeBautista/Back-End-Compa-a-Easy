@@ -10,6 +10,7 @@ import { RankCourseUnlock } from '../users/entities/rank-course-unlock.entity';
 import { Rank } from '../users/entities/rank.entity';
 import { CreateRankDto } from './dto/create-rank.dto';
 import { CreateRankUnlockDto } from './dto/create-rank-unlock.dto';
+import { BulkUpsertRanksDto } from './dto/bulk-upsert-ranks.dto';
 import { UpdateRankDto } from './dto/update-rank.dto';
 
 function isUniqueViolation(err: any): boolean {
@@ -60,7 +61,16 @@ export class RanksService {
 
   async update(id: number, dto: UpdateRankDto) {
     await this.findOne(id);
-    await this.rankRepository.update({ id }, dto);
+
+    const patch: Partial<Rank> = {};
+    if (dto.name !== undefined) patch.name = dto.name;
+    if (dto.sortOrder !== undefined) patch.sortOrder = dto.sortOrder;
+
+    if (Object.keys(patch).length === 0) {
+      return this.findOne(id);
+    }
+
+    await this.rankRepository.update({ id }, patch);
     return this.findOne(id);
   }
 
@@ -127,5 +137,29 @@ export class RanksService {
     }
 
     return { ok: true };
+  }
+
+  async bulkUpsert(dto: BulkUpsertRanksDto) {
+    const normalized = dto.ranks
+      .map((r) => ({
+        name: r.name.trim(),
+        sortOrder: r.sortOrder ?? 0,
+      }))
+      .filter((r) => r.name.length > 0);
+
+    if (!normalized.length) {
+      return { ok: true, total: 0 };
+    }
+
+    // TypeORM upsert by unique name.
+    await this.rankRepository.upsert(normalized, ['name']);
+
+    const names = normalized.map((r) => r.name);
+    const ranks = await this.rankRepository.find({
+      where: names.map((name) => ({ name })),
+      order: { sortOrder: 'ASC', id: 'ASC' },
+    });
+
+    return { ok: true, total: normalized.length, ranks };
   }
 }

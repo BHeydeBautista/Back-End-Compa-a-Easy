@@ -56,16 +56,25 @@ export class UsersService {
   }
 
   async findAll() {
+    return this.findAllWithOptions();
+  }
+
+  async findAllWithOptions(opts?: { includeDeleted?: boolean }) {
     return this.userRepository.find({
+      withDeleted: Boolean(opts?.includeDeleted),
       relations: {
         rank: true,
+      },
+      order: {
+        id: 'ASC',
       },
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, opts?: { includeDeleted?: boolean }) {
     const user = await this.userRepository.findOne({
       where: { id },
+      withDeleted: Boolean(opts?.includeDeleted),
       relations: {
         rank: true,
       },
@@ -77,12 +86,17 @@ export class UsersService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const user = await this.userRepository.findOne({ where: { id }, withDeleted: true });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     const patch: Partial<User> = { ...updateUserDto } as any;
+
+    if (Object.keys(patch).length === 0) {
+      return this.findOne(id);
+    }
+
     if (patch.email) {
       patch.email = patch.email.trim().toLowerCase();
     }
@@ -103,5 +117,15 @@ export class UsersService {
 
     await this.userRepository.softDelete({ id });
     return { ok: true };
+  }
+
+  async restore(id: number) {
+    const user = await this.userRepository.findOne({ where: { id }, withDeleted: true });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.userRepository.restore({ id });
+    return this.findOne(id);
   }
 }

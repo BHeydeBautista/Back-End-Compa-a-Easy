@@ -31,6 +31,11 @@
 $ npm install
 ```
 
+## Running with the Next.js frontend
+
+- Default port is `3001` (so it doesn't conflict with Next.js dev server on `3000`).
+- For local dev, set `CORS_ORIGIN=http://localhost:3000` (see `.env.example`).
+
 ## Compile and run the project
 
 ```bash

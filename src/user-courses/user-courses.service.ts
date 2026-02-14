@@ -4,8 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { CourseType } from '../users/enums/course-type.enum';
 import { Course } from '../users/entities/course.entity';
+import { CoursePrerequisite } from '../users/entities/course-prerequisite.entity';
 import { RankCourseUnlock } from '../users/entities/rank-course-unlock.entity';
 import { UserApprovedCourse } from '../users/entities/user-approved-course.entity';
 import { User } from '../users/entities/user.entity';
@@ -28,6 +30,8 @@ export class UserCoursesService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
+    @InjectRepository(CoursePrerequisite)
+    private readonly prerequisiteRepository: Repository<CoursePrerequisite>,
     @InjectRepository(UserApprovedCourse)
     private readonly approvedRepository: Repository<UserApprovedCourse>,
     @InjectRepository(RankCourseUnlock)
@@ -138,12 +142,82 @@ export class UserCoursesService {
         .map((a) => a.course?.id)
         .filter((id): id is number => typeof id === 'number'),
     );
-    const availableCourses = unlocks
-      .map((u) => u.course)
-      .filter((c): c is Course => Boolean(c))
-      .filter((c) => !approvedCourseIds.has(c.id));
 
-    return availableCourses;
+    const unlockedCourses = unlocks
+      .map((u) => u.course)
+      .filter((c): c is Course => Boolean(c));
+
+    const candidates = unlockedCourses.filter((c) => !approvedCourseIds.has(c.id));
+    if (!candidates.length) {
+      return [];
+    }
+
+    // Explicit prerequisites (AND)
+    const candidateIds = candidates.map((c) => c.id);
+    const prereqRows = await this.prerequisiteRepository.find({
+      where: {
+        courseId: In(candidateIds),
+      },
+      relations: {
+        prerequisite: true,
+      },
+    });
+
+    const prereqsByCourseId = new Map<number, number[]>();
+    for (const row of prereqRows) {
+      const courseId = row.courseId ?? row.course?.id;
+      const prerequisiteId = row.prerequisite?.id;
+      if (typeof courseId !== 'number' || typeof prerequisiteId !== 'number') continue;
+      const list = prereqsByCourseId.get(courseId) ?? [];
+      list.push(prerequisiteId);
+      prereqsByCourseId.set(courseId, list);
+    }
+
+    // "TODOS" rule: requires all previous ASCENSO courses (by minimum-rank sortOrder)
+    const coursesRequiringAllPrev = candidates.filter((c) => c.requiresAllPreviousAscenso);
+    let ascensoMinSortByCourseId: Map<number, number> | null = null;
+    if (coursesRequiringAllPrev.length) {
+      const rows = await this.unlockRepository
+        .createQueryBuilder('u')
+        .innerJoin('u.rank', 'r')
+        .innerJoin('u.course', 'c')
+        .select('c.id', 'courseId')
+        .addSelect('MIN(r.sortOrder)', 'minSort')
+        .where('c.type = :type', { type: CourseType.ASCENSO })
+        .groupBy('c.id')
+        .getRawMany<{ courseId: string | number; minSort: string | number }>();
+
+      ascensoMinSortByCourseId = new Map();
+      for (const row of rows) {
+        const courseId = Number(row.courseId);
+        const minSort = Number(row.minSort);
+        if (Number.isFinite(courseId) && Number.isFinite(minSort)) {
+          ascensoMinSortByCourseId.set(courseId, minSort);
+        }
+      }
+    }
+
+    const isSatisfied = (course: Course) => {
+      const explicit = prereqsByCourseId.get(course.id) ?? [];
+      for (const prereqId of explicit) {
+        if (!approvedCourseIds.has(prereqId)) return false;
+      }
+
+      if (course.requiresAllPreviousAscenso && ascensoMinSortByCourseId) {
+        const currentMinSort = ascensoMinSortByCourseId.get(course.id);
+        if (typeof currentMinSort === 'number') {
+          for (const [ascensoCourseId, minSort] of ascensoMinSortByCourseId.entries()) {
+            if (minSort < currentMinSort && !approvedCourseIds.has(ascensoCourseId)) {
+              return false;
+            }
+          }
+        }
+      }
+
+      return true;
+    };
+
+    return candidates.filter(isSatisfied);
   }
 
   async dashboard(userId: number) {
