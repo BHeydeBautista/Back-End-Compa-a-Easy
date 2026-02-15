@@ -13,7 +13,6 @@ import { Roles } from '../auth/roles/roles.decorator';
 import { RolesGuard } from '../auth/roles/roles.guard';
 import { UserRole } from '../users/enums/user-role.enum';
 import { CreateRankDto } from './dto/create-rank.dto';
-import { BulkUpsertRanksDto } from './dto/bulk-upsert-ranks.dto';
 import { CreateRankUnlockDto } from './dto/create-rank-unlock.dto';
 import { UpdateRankDto } from './dto/update-rank.dto';
 import { RanksService } from './ranks.service';
@@ -27,12 +26,6 @@ export class RanksController {
   @Roles(UserRole.SUPER_ADMIN)
   create(@Body() dto: CreateRankDto) {
     return this.ranksService.create(dto);
-  }
-
-  @Post('bulk')
-  @Roles(UserRole.SUPER_ADMIN)
-  bulkUpsert(@Body() dto: BulkUpsertRanksDto) {
-    return this.ranksService.bulkUpsert(dto);
   }
 
   @Get()
@@ -58,7 +51,6 @@ export class RanksController {
   }
 
   @Get(':id/unlocks')
-  @Roles(UserRole.SUPER_ADMIN)
   listUnlocks(@Param('id') id: string) {
     return this.ranksService.listUnlocks(Number(id));
   }
