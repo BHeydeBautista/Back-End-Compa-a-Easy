@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcryptjs from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
+import * as crypto from 'node:crypto';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -15,6 +17,27 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
   ) {}
+
+  private async signUser(user: { id: number; name: string; email: string; role?: any }) {
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      name: user.name,
+      role: (user as any).role,
+    };
+
+    const token = await this.jwtService.signAsync(payload);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: (user as any).role,
+      },
+    };
+  }
 
   async register(registerDto: RegisterDto) {
     const existing = await this.usersService.findOneByEmail(registerDto.email);
@@ -46,23 +69,47 @@ export class AuthService {
       throw new UnauthorizedException('Invalid Credentials');
     }
 
-    const payload = {
-      email: user.email,
-      sub: user.id,
-      name: user.name,
-      role: (user as any).role,
-    };
+    return this.signUser(user);
+  }
 
-    const token = await this.jwtService.signAsync(payload);
+  async googleLogin(idToken: string) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      throw new BadRequestException('Google login not configured');
+    }
 
-    return {
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: (user as any).role,
-      },
-    };
+    const googleClient = new OAuth2Client(clientId);
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: clientId,
+    });
+
+    const payload = ticket.getPayload();
+    const email = payload?.email;
+    const name = payload?.name;
+    const emailVerified = payload?.email_verified;
+
+    if (!email) {
+      throw new BadRequestException('Google account has no email');
+    }
+    if (emailVerified === false) {
+      throw new BadRequestException('Google email not verified');
+    }
+
+    let user = await this.usersService.findOneByEmail(email);
+    if (!user) {
+      const displayName = (name && String(name).trim()) || email.split('@')[0] || 'Usuario';
+      const randomPassword = crypto.randomBytes(48).toString('base64url');
+      const passwordHash = await bcryptjs.hash(randomPassword, 10);
+
+      user = await this.usersService.create({
+        name: displayName,
+        email,
+        password: passwordHash,
+      });
+    }
+
+    return this.signUser(user);
   }
 }

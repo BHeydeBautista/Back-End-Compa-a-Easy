@@ -106,7 +106,7 @@ export class UsersService {
     }
 
     await this.userRepository.update({ id }, patch);
-    return this.findOne(id);
+    return this.findOne(id, { includeDeleted: true });
   }
 
   async remove(id: number) {
