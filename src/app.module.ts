@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -18,19 +18,46 @@ import { UsersModule } from './users/users.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const databaseUrl = config.get<string>('DATABASE_URL');
-        const isProd = (config.get<string>('NODE_ENV') ?? 'development') === 'production';
+        const isProd =
+          (config.get<string>('NODE_ENV') ?? 'development') === 'production';
         const dbSslEnv = (config.get<string>('DB_SSL') ?? '').toLowerCase();
         const useSsl = isProd || dbSslEnv === 'true' || dbSslEnv === '1';
 
         const dbSyncEnv = (config.get<string>('DB_SYNC') ?? '').toLowerCase();
         const forceSync = dbSyncEnv === 'true' || dbSyncEnv === '1';
 
-        const sslOptions = useSsl ? ({ rejectUnauthorized: false } as const) : undefined;
+        const sslOptions = useSsl
+          ? ({ rejectUnauthorized: false } as const)
+          : undefined;
 
         const common = {
           autoLoadEntities: true,
           synchronize: forceSync || !isProd,
         } as const;
+
+        try {
+          if (databaseUrl) {
+            const parsed = new URL(databaseUrl);
+            const dbName = parsed.pathname?.replace(/^\//, '') || '(no-db)';
+            Logger.log(
+              `TypeORM config: isProd=${isProd} forceSync=${forceSync} synchronize=${common.synchronize} ssl=${useSsl} host=${parsed.hostname} db=${dbName}`,
+              'TypeOrmConfig',
+            );
+          } else {
+            const host = config.get<string>('DB_HOST') ?? 'localhost';
+            const port = Number(config.get<string>('DB_PORT') ?? 5432);
+            const dbName = config.get<string>('DB_NAME') ?? 'app';
+            Logger.log(
+              `TypeORM config: isProd=${isProd} forceSync=${forceSync} synchronize=${common.synchronize} ssl=${useSsl} host=${host}:${port} db=${dbName}`,
+              'TypeOrmConfig',
+            );
+          }
+        } catch {
+          Logger.log(
+            `TypeORM config: isProd=${isProd} forceSync=${forceSync} synchronize=${common.synchronize} ssl=${useSsl} (details unavailable)`,
+            'TypeOrmConfig',
+          );
+        }
 
         if (databaseUrl) {
           return {
