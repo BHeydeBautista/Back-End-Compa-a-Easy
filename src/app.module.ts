@@ -19,16 +19,24 @@ import { UsersModule } from './users/users.module';
       useFactory: (config: ConfigService) => {
         const databaseUrl = config.get<string>('DATABASE_URL');
         const isProd = (config.get<string>('NODE_ENV') ?? 'development') === 'production';
+        const dbSslEnv = (config.get<string>('DB_SSL') ?? '').toLowerCase();
+        const useSsl = isProd || dbSslEnv === 'true' || dbSslEnv === '1';
+
+        const dbSyncEnv = (config.get<string>('DB_SYNC') ?? '').toLowerCase();
+        const forceSync = dbSyncEnv === 'true' || dbSyncEnv === '1';
+
+        const sslOptions = useSsl ? ({ rejectUnauthorized: false } as const) : undefined;
 
         const common = {
           autoLoadEntities: true,
-          synchronize: !isProd,
+          synchronize: forceSync || !isProd,
         } as const;
 
         if (databaseUrl) {
           return {
             type: 'postgres' as const,
             url: databaseUrl,
+            ssl: sslOptions,
             ...common,
           };
         }
@@ -40,6 +48,7 @@ import { UsersModule } from './users/users.module';
           username: config.get<string>('DB_USER') ?? 'postgres',
           password: config.get<string>('DB_PASSWORD') ?? 'postgres',
           database: config.get<string>('DB_NAME') ?? 'app',
+          ssl: sslOptions,
           ...common,
         };
       },
