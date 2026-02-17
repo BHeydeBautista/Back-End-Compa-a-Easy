@@ -10,6 +10,7 @@ import * as crypto from 'node:crypto';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class AuthService {
@@ -111,5 +112,23 @@ export class AuthService {
     }
 
     return this.signUser(user);
+  }
+
+  async updateProfile(userId: number, dto: UpdateProfileDto) {
+    if (!userId || !Number.isFinite(userId) || userId <= 0) {
+      throw new UnauthorizedException('Invalid user');
+    }
+
+    const updated = await this.usersService.updateSelfProfile(userId, dto);
+    return {
+      user: {
+        id: updated.id,
+        name: updated.name,
+        steamName: updated.steamName ?? null,
+        whatsappName: updated.whatsappName ?? null,
+        phoneNumber: updated.phoneNumber ?? null,
+        discord: updated.discord ?? null,
+      },
+    };
   }
 }

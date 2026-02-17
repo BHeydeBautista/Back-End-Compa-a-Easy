@@ -10,6 +10,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole } from './enums/user-role.enum';
 import { User } from './entities/user.entity';
+import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -127,5 +128,88 @@ export class UsersService {
 
     await this.userRepository.restore({ id });
     return this.findOne(id);
+  }
+
+  async updateSelfProfile(id: number, dto: UpdateProfileDto) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const patch: Partial<User> = {};
+
+    if (dto.name !== undefined) {
+      const name = String(dto.name ?? '').trim();
+      if (!name) {
+        throw new BadRequestException('Name is required');
+      }
+      patch.name = name;
+    }
+
+    const normalizeOptional = (value: unknown) => {
+      if (value === undefined) return undefined;
+      const trimmed = String(value ?? '').trim();
+      return trimmed.length ? trimmed : null;
+    };
+
+    if (dto.steamName !== undefined) patch.steamName = normalizeOptional(dto.steamName) as any;
+    if (dto.whatsappName !== undefined) patch.whatsappName = normalizeOptional(dto.whatsappName) as any;
+    if (dto.phoneNumber !== undefined) patch.phoneNumber = normalizeOptional(dto.phoneNumber) as any;
+    if (dto.discord !== undefined) patch.discord = normalizeOptional(dto.discord) as any;
+
+    if (Object.keys(patch).length === 0) {
+      return this.findOne(id);
+    }
+
+    await this.userRepository.update({ id }, patch);
+    return this.findOne(id);
+  }
+
+  async getPublicProfile(id: number) {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: {
+        rank: true,
+        approvedCourses: {
+          course: true,
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const approvedCourses = (user.approvedCourses ?? [])
+      .map((a) => a?.course)
+      .filter((c): c is any => Boolean(c))
+      .map((c) => ({ code: c.code, name: c.name }));
+
+    return {
+      id: user.id,
+      name: user.name,
+      division: user.division ?? null,
+      rank: user.rank ? { id: user.rank.id, name: user.rank.name } : null,
+      courses: {
+        approved: approvedCourses,
+      },
+    };
+  }
+
+  async listPublicMembers() {
+    const users = await this.userRepository.find({
+      relations: { rank: true },
+      order: { id: 'ASC' },
+    });
+
+    return (users ?? [])
+      .filter((u) => Boolean(u?.category) && Boolean(u?.division) && Boolean(u?.rank?.name))
+      .map((u) => ({
+        id: u.id,
+        name: u.name,
+        category: u.category ?? null,
+        division: u.division ?? null,
+        rank: u.rank ? { id: u.rank.id, name: u.rank.name } : null,
+      }));
   }
 }
