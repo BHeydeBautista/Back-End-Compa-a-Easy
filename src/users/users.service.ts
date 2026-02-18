@@ -108,6 +108,11 @@ export class UsersService {
     );
   }
 
+  async hardDeleteById(userId: number) {
+    if (!userId || !Number.isFinite(userId) || userId <= 0) return;
+    await this.userRepository.delete({ id: userId });
+  }
+
   async findAll() {
     return this.findAllWithOptions();
   }

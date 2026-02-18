@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
+import { ServiceUnavailableException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcryptjs from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
@@ -94,12 +95,26 @@ export class AuthService {
         `Failed to send verification email to ${created.email}`,
         err instanceof Error ? err.stack : String(err),
       );
+
+      // Ensure we don't create accounts without a working verification channel.
+      try {
+        await this.usersService.hardDeleteById(created.id);
+      } catch (cleanupErr) {
+        this.logger.error(
+          `Failed to cleanup user after email send failure (id=${created.id})`,
+          cleanupErr instanceof Error ? cleanupErr.stack : String(cleanupErr),
+        );
+      }
+
+      throw new ServiceUnavailableException(
+        'No se pudo enviar el correo de verificación. Intenta nuevamente en unos minutos.',
+      );
     }
 
     return {
       ok: true,
       message:
-        'Cuenta creada. Si el correo es válido, te llegará un email para verificar tu cuenta. Revisa tu bandeja (y spam).',
+        'Cuenta creada. Revisa tu correo para verificar tu cuenta (bandeja y spam).',
     };
   }
 
