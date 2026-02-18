@@ -23,7 +23,9 @@ export class EmailService {
     const host = this.config.get<string>('SMTP_HOST');
     const port = Number(this.config.get<string>('SMTP_PORT') ?? 587);
     const user = this.config.get<string>('SMTP_USER');
-    const pass = this.config.get<string>('SMTP_PASS');
+    // People often paste Gmail App Passwords with spaces. Normalize it.
+    const passRaw = this.config.get<string>('SMTP_PASS');
+    const pass = passRaw ? String(passRaw).replace(/\s+/g, '') : undefined;
     const secureEnv = (this.config.get<string>('SMTP_SECURE') ?? '').toLowerCase();
     const secure = secureEnv === 'true' || secureEnv === '1' ? true : port === 465;
 
@@ -33,8 +35,12 @@ export class EmailService {
       host,
       port,
       secure,
+      // Prevent very long hangs on bad SMTP configs.
+      connectionTimeout: 8_000,
+      greetingTimeout: 8_000,
+      socketTimeout: 15_000,
       auth: user && pass ? { user, pass } : undefined,
-    });
+    } as any);
 
     return this.transporter;
   }

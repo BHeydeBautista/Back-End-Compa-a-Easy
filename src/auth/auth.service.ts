@@ -3,6 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcryptjs from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
@@ -17,6 +18,8 @@ import { EmailService } from './email.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -79,11 +82,24 @@ export class AuthService {
       emailVerificationTokenExpiresAt: expiresAt,
     });
 
-    await this.emailService.sendEmailVerification(created.email, token, created.name);
+    try {
+      await this.emailService.sendEmailVerification(
+        created.email,
+        token,
+        created.name,
+      );
+    } catch (err) {
+      // Don't leak SMTP details to the client. Keep the account unverified and allow resend.
+      this.logger.error(
+        `Failed to send verification email to ${created.email}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
 
     return {
       ok: true,
-      message: 'Cuenta creada. Revisa tu correo para verificar tu email.',
+      message:
+        'Cuenta creada. Si el correo es válido, te llegará un email para verificar tu cuenta. Revisa tu bandeja (y spam).',
     };
   }
 
