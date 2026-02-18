@@ -75,8 +75,8 @@ export class AttendanceService {
       const isFriday = dow === 5;
       if (!isWednesday && !isFriday) continue;
 
+      // Miércoles y viernes = misiones oficiales.
       rows.push({ date, type: AttendanceType.MISSION });
-      rows.push({ date, type: AttendanceType.TRAINING });
     }
 
     if (!rows.length) return;
