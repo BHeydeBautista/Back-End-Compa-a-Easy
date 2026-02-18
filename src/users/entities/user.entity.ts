@@ -22,6 +22,9 @@ export class User {
   @Column()
   name: string;
 
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  publicName?: string | null;
+
   @Index({ unique: true })
   @Column({ unique: true, nullable: false })
   email: string;
@@ -82,6 +85,12 @@ export class User {
 
   @Column({ type: 'varchar', length: 120, nullable: true })
   discord?: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  avatarPublicId?: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  backgroundPublicId?: string | null;
 
   @Column({ type: 'int', default: 0 })
   missionAttendanceCount: number;

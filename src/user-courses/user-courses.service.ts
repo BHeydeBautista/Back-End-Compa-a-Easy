@@ -408,6 +408,7 @@ export class UserCoursesService {
       user: {
         id: user.id,
         name: user.name,
+        publicName: user.publicName ?? null,
         email: user.email,
         role: user.role,
         rankId: user.rankId ?? null,
@@ -418,6 +419,8 @@ export class UserCoursesService {
         whatsappName: user.whatsappName ?? null,
         phoneNumber: user.phoneNumber ?? null,
         discord: user.discord ?? null,
+        avatarPublicId: user.avatarPublicId ?? null,
+        backgroundPublicId: user.backgroundPublicId ?? null,
         missionAttendanceCount: user.missionAttendanceCount,
         trainingAttendanceCount: user.trainingAttendanceCount,
       },

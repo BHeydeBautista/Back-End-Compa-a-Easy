@@ -478,10 +478,33 @@ export class AuthService {
       user: {
         id: updated.id,
         name: updated.name,
+        publicName: updated.publicName ?? null,
         steamName: updated.steamName ?? null,
         whatsappName: updated.whatsappName ?? null,
         phoneNumber: updated.phoneNumber ?? null,
         discord: updated.discord ?? null,
+        avatarPublicId: updated.avatarPublicId ?? null,
+        backgroundPublicId: updated.backgroundPublicId ?? null,
+      },
+    };
+  }
+
+  async setAvatar(userId: number, publicId: string) {
+    const updated = await this.usersService.setAvatar(userId, publicId);
+    return {
+      user: {
+        id: userId,
+        avatarPublicId: updated?.avatarPublicId ?? null,
+      },
+    };
+  }
+
+  async setBackground(userId: number, publicId: string) {
+    const updated = await this.usersService.setBackground(userId, publicId);
+    return {
+      user: {
+        id: userId,
+        backgroundPublicId: updated?.backgroundPublicId ?? null,
       },
     };
   }

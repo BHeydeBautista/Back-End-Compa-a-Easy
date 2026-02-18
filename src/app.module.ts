@@ -6,6 +6,8 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { CoursesModule } from './courses/courses.module';
+import { GalleryModule } from './gallery/gallery.module';
+import { MediaModule } from './media/media.module';
 import { RanksModule } from './ranks/ranks.module';
 import { UserCoursesModule } from './user-courses/user-courses.module';
 import { UsersModule } from './users/users.module';
@@ -15,6 +17,7 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    MediaModule,
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -87,6 +90,7 @@ import { UsersModule } from './users/users.module';
     RanksModule,
     CoursesModule,
     UserCoursesModule,
+    GalleryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

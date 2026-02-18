@@ -13,6 +13,7 @@ import { UserDivision } from './enums/user-division.enum';
 import { UserRole } from './enums/user-role.enum';
 import { User } from './entities/user.entity';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
+import { CloudinaryService } from '../media/cloudinary.service';
 
 type InternalCreateUserPatch = {
   isEmailVerified?: boolean;
@@ -26,6 +27,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly cloudinary: CloudinaryService,
   ) {}
 
   async create(createUserDto: CreateUserDto & InternalCreateUserPatch) {
@@ -224,6 +226,9 @@ export class UsersService {
     if (dto.discord !== undefined)
       patch.discord = normalizeOptional(dto.discord) as any;
 
+    if (dto.publicName !== undefined)
+      patch.publicName = normalizeOptional(dto.publicName) as any;
+
     if (Object.keys(patch).length === 0) {
       return this.findOne(id);
     }
@@ -254,10 +259,12 @@ export class UsersService {
 
     return {
       id: user.id,
-      name: user.name,
+      name: user.publicName ?? user.name,
       category: user.category ?? null,
       division: user.division ?? null,
       rank: user.rank ? { id: user.rank.id, name: user.rank.name } : null,
+      avatarPublicId: user.avatarPublicId ?? null,
+      backgroundPublicId: user.backgroundPublicId ?? null,
       courses: {
         approved: approvedCourses,
       },
@@ -275,10 +282,58 @@ export class UsersService {
       .filter((u) => Boolean(u?.rank?.name))
       .map((u) => ({
         id: u.id,
-        name: u.name,
+        name: u.publicName ?? u.name,
         category: u.category ?? UserCategory.ENLISTADO,
         division: u.division ?? UserDivision.FENIX,
         rank: u.rank ? { id: u.rank.id, name: u.rank.name } : null,
+        avatarPublicId: u.avatarPublicId ?? null,
       }));
+  }
+
+  async setAvatar(userId: number, publicId: string) {
+    const next = String(publicId ?? '').trim();
+    if (!next) {
+      throw new BadRequestException('publicId requerido');
+    }
+    if (!this.cloudinary.assertPublicIdAllowed(next)) {
+      throw new BadRequestException('publicId inválido para Cloudinary');
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const prev = user.avatarPublicId ?? null;
+    await this.userRepository.update({ id: userId }, { avatarPublicId: next });
+
+    if (prev && prev !== next) {
+      await this.cloudinary.deleteImage(prev);
+    }
+
+    return this.userRepository.findOne({ where: { id: userId } });
+  }
+
+  async setBackground(userId: number, publicId: string) {
+    const next = String(publicId ?? '').trim();
+    if (!next) {
+      throw new BadRequestException('publicId requerido');
+    }
+    if (!this.cloudinary.assertPublicIdAllowed(next)) {
+      throw new BadRequestException('publicId inválido para Cloudinary');
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const prev = user.backgroundPublicId ?? null;
+    await this.userRepository.update(
+      { id: userId },
+      { backgroundPublicId: next },
+    );
+
+    if (prev && prev !== next) {
+      await this.cloudinary.deleteImage(prev);
+    }
+
+    return this.userRepository.findOne({ where: { id: userId } });
   }
 }

@@ -11,6 +11,11 @@ export class UpdateProfileDto {
   @Transform(({ value }) => value?.trim())
   @IsOptional()
   @IsString()
+  publicName?: string;
+
+  @Transform(({ value }) => value?.trim())
+  @IsOptional()
+  @IsString()
   steamName?: string;
 
   @Transform(({ value }) => value?.trim())

@@ -14,6 +14,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { SetProfileImageDto } from './dto/set-profile-image.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthGuard } from './guard/auth.guard';
 import type { AuthenticatedRequest } from './types/authenticated-request.type';
@@ -65,5 +66,23 @@ export class AuthController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.authService.updateProfile(req.user.sub, dto);
+  }
+
+  @Post('profile/avatar')
+  @UseGuards(AuthGuard)
+  setAvatar(
+    @Body() dto: SetProfileImageDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.authService.setAvatar(req.user.sub, dto.publicId);
+  }
+
+  @Post('profile/background')
+  @UseGuards(AuthGuard)
+  setBackground(
+    @Body() dto: SetProfileImageDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.authService.setBackground(req.user.sub, dto.publicId);
   }
 }
