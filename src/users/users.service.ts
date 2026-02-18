@@ -200,6 +200,7 @@ export class UsersService {
     return {
       id: user.id,
       name: user.name,
+      category: user.category ?? null,
       division: user.division ?? null,
       rank: user.rank ? { id: user.rank.id, name: user.rank.name } : null,
       courses: {
