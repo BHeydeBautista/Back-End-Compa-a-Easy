@@ -22,6 +22,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: Transporter | null = null;
+  private loggedSmtpConfig = false;
+  private loggedResendConfig = false;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -58,43 +60,139 @@ export class EmailService {
       auth: user && pass ? { user, pass } : undefined,
     } as any);
 
+    if (!this.loggedSmtpConfig) {
+      this.loggedSmtpConfig = true;
+      this.logger.log(
+        `SMTP configured: host=${host} port=${port} secure=${secure} user=${user ? '[set]' : '[missing]'} from=${this.config.get<string>('SMTP_FROM') ? '[set]' : '[missing]'}`,
+      );
+    }
+
     return this.transporter;
+  }
+
+  private async sendViaResend(params: {
+    toEmail: string;
+    subject: string;
+    text: string;
+    html: string;
+  }) {
+    const apiKey = this.config.get<string>('RESEND_API_KEY');
+    const from = this.config.get<string>('RESEND_FROM');
+    if (!apiKey || !from) return { ok: false as const, configured: false as const };
+
+    if (!this.loggedResendConfig) {
+      this.loggedResendConfig = true;
+      this.logger.log(
+        `Resend configured: apiKey=[set] from=${from ? '[set]' : '[missing]'}`,
+      );
+    }
+
+    const timeoutMs = Number(
+      this.config.get<string>('RESEND_TIMEOUT_MS') ?? 15_000,
+    );
+
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from,
+          to: [params.toEmail],
+          subject: params.subject,
+          text: params.text,
+          html: params.html,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Resend failed: ${res.status} ${body || res.statusText}`);
+      }
+
+      return { ok: true as const, configured: true as const };
+    } finally {
+      clearTimeout(id);
+    }
   }
 
   async sendEmailVerification(toEmail: string, token: string, name?: string) {
     const frontend = this.getFrontendBaseUrl();
     const link = `${frontend}/auth/verify-email?token=${encodeURIComponent(token)}`;
 
+    const safeName = (name ?? '').trim();
+    const greeting = safeName ? `Hola ${safeName},` : 'Hola,';
+    const subject = 'Verifica tu correo';
+    const text = `${greeting}\n\nPara activar tu cuenta, verifica tu correo visitando este enlace:\n${link}\n\nSi tú no creaste esta cuenta, puedes ignorar este email.`;
+    const html = `
+        <p>${greeting}</p>
+        <p>Para activar tu cuenta, verifica tu correo haciendo click aquí:</p>
+        <p><a href="${link}">${link}</a></p>
+        <p>Si tú no creaste esta cuenta, puedes ignorar este email.</p>
+      `.trim();
+
+    // Prefer Resend (HTTP) when configured (hosting providers often block SMTP).
+    const resend = await this.sendViaResend({
+      toEmail,
+      subject,
+      text,
+      html,
+    }).catch((err) => {
+      this.logger.error(
+        `Resend send failed (to=${toEmail}) message=${String((err as any)?.message ?? err)}`,
+      );
+      throw err;
+    });
+
+    if (resend.ok) {
+      return { ok: true };
+    }
+
     const from = this.config.get<string>('SMTP_FROM');
-    const isProd = (this.config.get<string>('NODE_ENV') ?? 'development') === 'production';
-    const sendTimeoutMs = Number(this.config.get<string>('SMTP_SEND_TIMEOUT_MS') ?? 20_000);
+    const isProd =
+      (this.config.get<string>('NODE_ENV') ?? 'development') === 'production';
+    const sendTimeoutMs = Number(
+      this.config.get<string>('SMTP_SEND_TIMEOUT_MS') ?? 20_000,
+    );
 
     const transporter = this.ensureTransporter();
 
     if (!transporter || !from) {
       if (isProd) {
-        throw new Error('SMTP is not configured (SMTP_HOST/SMTP_FROM)');
+        throw new Error(
+          'No email provider configured (set RESEND_API_KEY/RESEND_FROM or SMTP_HOST/SMTP_FROM)',
+        );
       }
 
-      this.logger.warn(`SMTP not configured. Verification link for ${toEmail}: ${link}`);
+      this.logger.warn(
+        `Email not configured. Verification link for ${toEmail}: ${link}`,
+      );
       return { ok: true, dev: true };
     }
 
-    const safeName = (name ?? '').trim();
-    const greeting = safeName ? `Hola ${safeName},` : 'Hola,';
+    // Validate SMTP connection/auth quickly to fail fast with a useful server-side log.
+    try {
+      await withTimeout(Promise.resolve(transporter.verify() as any), 10_000, 'SMTP_VERIFY');
+    } catch (err) {
+      const anyErr = err as any;
+      this.logger.error(
+        `SMTP verify failed (to=${toEmail}) code=${anyErr?.code ?? 'n/a'} responseCode=${anyErr?.responseCode ?? 'n/a'} message=${String(anyErr?.message ?? err)}`,
+      );
+      throw err;
+    }
 
     await withTimeout(
       transporter.sendMail({
-      from,
-      to: toEmail,
-      subject: 'Verifica tu correo',
-      text: `${greeting}\n\nPara activar tu cuenta, verifica tu correo visitando este enlace:\n${link}\n\nSi tú no creaste esta cuenta, puedes ignorar este email.`,
-      html: `
-        <p>${greeting}</p>
-        <p>Para activar tu cuenta, verifica tu correo haciendo click aquí:</p>
-        <p><a href="${link}">${link}</a></p>
-        <p>Si tú no creaste esta cuenta, puedes ignorar este email.</p>
-      `.trim(),
+        from,
+        to: toEmail,
+        subject,
+        text,
+        html,
       }),
       sendTimeoutMs,
       'SMTP_SENDMAIL',

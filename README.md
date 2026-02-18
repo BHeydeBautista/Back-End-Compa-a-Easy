@@ -36,19 +36,25 @@ $ npm install
 - Default port is `3001` (so it doesn't conflict with Next.js dev server on `3000`).
 - For local dev, set `CORS_ORIGIN=http://localhost:3000` (see `.env.example`).
 
-## Email verification (SMTP)
+## Email verification (Resend or SMTP)
 
 Email/password registrations now require email verification before login.
 
 Backend env vars:
 
 - `FRONTEND_URL` (example: `http://localhost:3000`) used to build the verification link.
-- SMTP (required in production):
+- Recommended in production/hosting (Resend, HTTP-based):
+  - `RESEND_API_KEY`
+  - `RESEND_FROM` (example: `"Easy <no-reply@tu-dominio.com>"`)
+  - `RESEND_TIMEOUT_MS` (optional, default `15000`)
+
+- SMTP (fallback; some hosts block outbound SMTP):
   - `SMTP_HOST`
   - `SMTP_PORT` (default `587`)
   - `SMTP_USER` / `SMTP_PASS` (if your SMTP needs auth)
   - `SMTP_FROM` (example: `"Easy <no-reply@tu-dominio.com>"`)
   - `SMTP_SECURE` (`true` for implicit TLS, usually port `465`)
+  - `SMTP_SEND_TIMEOUT_MS` (optional, default `20000`)
 
 In non-production, if SMTP is not configured the backend logs the verification link in the console.
 
