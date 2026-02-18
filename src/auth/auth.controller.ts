@@ -13,6 +13,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthGuard } from './guard/auth.guard';
+import type { AuthenticatedRequest } from './types/authenticated-request.type';
 
 @Controller('auth')
 export class AuthController {
@@ -35,16 +36,16 @@ export class AuthController {
 
   @Get('profile')
   @UseGuards(AuthGuard)
-  profile(@Request() req: any) {
+  profile(@Request() req: AuthenticatedRequest) {
     return req.user;
   }
 
   @Patch('profile')
   @UseGuards(AuthGuard)
-  updateProfile(@Body() dto: UpdateProfileDto, @Request() req: any) {
-    const userIdRaw = req.user?.sub;
-    const userId =
-      typeof userIdRaw === 'string' ? Number(userIdRaw) : userIdRaw;
-    return this.authService.updateProfile(userId, dto);
+  updateProfile(
+    @Body() dto: UpdateProfileDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.authService.updateProfile(req.user.sub, dto);
   }
 }

@@ -9,6 +9,7 @@ import { CourseType } from '../enums/course-type.enum';
 import { RankCourseUnlock } from './rank-course-unlock.entity';
 import { UserApprovedCourse } from './user-approved-course.entity';
 import { CoursePrerequisite } from './course-prerequisite.entity';
+import { CourseInstructor } from './course-instructor.entity';
 
 @Entity()
 export class Course {
@@ -46,4 +47,7 @@ export class Course {
 
   @OneToMany(() => CoursePrerequisite, (pr) => pr.prerequisite)
   requiredFor: CoursePrerequisite[];
+
+  @OneToMany(() => CourseInstructor, (ci) => ci.course)
+  instructors: CourseInstructor[];
 }

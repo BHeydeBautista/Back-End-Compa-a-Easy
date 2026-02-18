@@ -8,6 +8,8 @@ import * as bcryptjs from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 import * as crypto from 'node:crypto';
 import { UsersService } from '../users/users.service';
+import { UserRole } from '../users/enums/user-role.enum';
+import type { JwtPayload } from './types/jwt-payload.type';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -23,13 +25,13 @@ export class AuthService {
     id: number;
     name: string;
     email: string;
-    role?: any;
+    role?: UserRole;
   }) {
-    const payload = {
+    const payload: JwtPayload = {
       email: user.email,
       sub: user.id,
       name: user.name,
-      role: (user as any).role,
+      role: user.role,
     };
 
     const token = await this.jwtService.signAsync(payload);
@@ -40,7 +42,7 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: (user as any).role,
+        role: user.role,
       },
     };
   }

@@ -17,7 +17,7 @@ import { ConfirmAttendanceDto } from './dto/confirm-attendance.dto';
 import { CreateAttendanceSessionDto } from './dto/create-attendance-session.dto';
 
 @UseGuards(AuthGuard, RolesGuard)
-@Roles(UserRole.SUPER_ADMIN)
+@Roles(UserRole.SUPER_ADMIN, UserRole.INFRAESTRUCTURA)
 @Controller('attendance')
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
@@ -49,6 +49,9 @@ export class AttendanceController {
 
   @Delete('sessions/:id/confirm/:userId')
   unconfirm(@Param('id') id: string, @Param('userId') userId: string) {
-    return this.attendanceService.unconfirmAttendance(Number(id), Number(userId));
+    return this.attendanceService.unconfirmAttendance(
+      Number(id),
+      Number(userId),
+    );
   }
 }

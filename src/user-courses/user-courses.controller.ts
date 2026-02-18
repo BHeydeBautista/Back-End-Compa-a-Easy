@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/guard/auth.guard';
+import type { JwtPayload } from '../auth/types/jwt-payload.type';
 import { UserRole } from '../users/enums/user-role.enum';
 import { ApproveCourseDto } from './dto/approve-course.dto';
 import { UserCoursesService } from './user-courses.service';
@@ -19,13 +20,12 @@ import { UserCoursesService } from './user-courses.service';
 export class UserCoursesController {
   constructor(private readonly userCoursesService: UserCoursesService) {}
 
-  private assertSelfOrSuperAdmin(requestUser: any, targetUserId: number) {
-    const requesterIdRaw = requestUser?.sub;
-    const requesterRole = requestUser?.role as UserRole | undefined;
-    const requesterId =
-      typeof requesterIdRaw === 'string'
-        ? Number(requesterIdRaw)
-        : requesterIdRaw;
+  private assertSelfOrSuperAdmin(
+    requestUser: JwtPayload | undefined,
+    targetUserId: number,
+  ) {
+    const requesterId = requestUser?.sub;
+    const requesterRole = requestUser?.role;
 
     if (requesterRole === UserRole.SUPER_ADMIN) {
       return;
@@ -39,7 +39,10 @@ export class UserCoursesController {
   @Get('approved')
   listApproved(@Param('userId') userId: string, @Request() req: any) {
     const targetUserId = Number(userId);
-    this.assertSelfOrSuperAdmin(req.user, targetUserId);
+    this.assertSelfOrSuperAdmin(
+      req.user as JwtPayload | undefined,
+      targetUserId,
+    );
     return this.userCoursesService.listApproved(targetUserId);
   }
 
@@ -50,7 +53,10 @@ export class UserCoursesController {
     @Request() req: any,
   ) {
     const targetUserId = Number(userId);
-    this.assertSelfOrSuperAdmin(req.user, targetUserId);
+    this.assertSelfOrSuperAdmin(
+      req.user as JwtPayload | undefined,
+      targetUserId,
+    );
     return this.userCoursesService.approve(targetUserId, dto.courseId);
   }
 
@@ -61,21 +67,30 @@ export class UserCoursesController {
     @Request() req: any,
   ) {
     const targetUserId = Number(userId);
-    this.assertSelfOrSuperAdmin(req.user, targetUserId);
+    this.assertSelfOrSuperAdmin(
+      req.user as JwtPayload | undefined,
+      targetUserId,
+    );
     return this.userCoursesService.unapprove(targetUserId, Number(courseId));
   }
 
   @Get('available')
   listAvailable(@Param('userId') userId: string, @Request() req: any) {
     const targetUserId = Number(userId);
-    this.assertSelfOrSuperAdmin(req.user, targetUserId);
+    this.assertSelfOrSuperAdmin(
+      req.user as JwtPayload | undefined,
+      targetUserId,
+    );
     return this.userCoursesService.listAvailable(targetUserId);
   }
 
   @Get('dashboard')
   dashboard(@Param('userId') userId: string, @Request() req: any) {
     const targetUserId = Number(userId);
-    this.assertSelfOrSuperAdmin(req.user, targetUserId);
+    this.assertSelfOrSuperAdmin(
+      req.user as JwtPayload | undefined,
+      targetUserId,
+    );
     return this.userCoursesService.dashboard(targetUserId);
   }
 }
