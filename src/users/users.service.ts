@@ -47,6 +47,7 @@ export class UsersService {
       email,
       password,
       role: createUserDto.role ?? UserRole.USER,
+      division: (createUserDto.division ?? UserDivision.FENIX) as any,
     });
 
     delete (user as any).password;
