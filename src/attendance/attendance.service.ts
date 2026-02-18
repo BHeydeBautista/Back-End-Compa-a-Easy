@@ -34,7 +34,62 @@ export class AttendanceService {
     private readonly userRepository: Repository<User>,
   ) {}
 
+  private toDateStringUtc(date: Date): string {
+    const yyyy = date.getUTCFullYear();
+    const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(date.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  private addDaysUtc(date: Date, days: number): Date {
+    const d = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
+    d.setUTCDate(d.getUTCDate() + days);
+    return d;
+  }
+
+  private dayOfWeekUtc(dateString: string): number {
+    // 0=Sun..6=Sat
+    return new Date(`${dateString}T00:00:00.000Z`).getUTCDay();
+  }
+
+  private async ensureRecurringSessions(opts?: {
+    pastDays?: number;
+    futureDays?: number;
+  }) {
+    const pastDays = Math.max(0, opts?.pastDays ?? 21);
+    const futureDays = Math.max(0, opts?.futureDays ?? 90);
+
+    const today = new Date();
+    const start = this.addDaysUtc(today, -pastDays);
+    const end = this.addDaysUtc(today, futureDays);
+
+    const rows: Array<Pick<AttendanceSession, 'date' | 'type'>> = [];
+    for (let i = 0; ; i++) {
+      const d = this.addDaysUtc(start, i);
+      if (d.getTime() > end.getTime()) break;
+      const date = this.toDateStringUtc(d);
+      const dow = this.dayOfWeekUtc(date);
+      const isWednesday = dow === 3;
+      const isFriday = dow === 5;
+      if (!isWednesday && !isFriday) continue;
+
+      rows.push({ date, type: AttendanceType.MISSION });
+      rows.push({ date, type: AttendanceType.TRAINING });
+    }
+
+    if (!rows.length) return;
+
+    await this.sessionRepository.upsert(rows, {
+      conflictPaths: ['date', 'type'],
+      skipUpdateIfNoValuesChanged: true,
+    });
+  }
+
   async listSessions() {
+    await this.ensureRecurringSessions();
+
     const sessions = await this.sessionRepository.find({
       order: { date: 'DESC', id: 'DESC' },
     });
@@ -84,7 +139,10 @@ export class AttendanceService {
     return session;
   }
 
-  async listSessionUsers(sessionId: number, opts?: { includeDeleted?: boolean }) {
+  async listSessionUsers(
+    sessionId: number,
+    opts?: { includeDeleted?: boolean },
+  ) {
     const session = await this.getSession(sessionId);
 
     const [users, entries] = await Promise.all([
@@ -99,7 +157,11 @@ export class AttendanceService {
       }),
     ]);
 
-    const presentUserIds = new Set(entries.map((e) => e.user?.id).filter((id): id is number => typeof id === 'number'));
+    const presentUserIds = new Set(
+      entries
+        .map((e) => e.user?.id)
+        .filter((id): id is number => typeof id === 'number'),
+    );
 
     const resultUsers = users.map((u) => ({
       id: u.id,
@@ -123,26 +185,46 @@ export class AttendanceService {
     };
   }
 
-  private async adjustUserCounter(userId: number, type: AttendanceType, delta: 1 | -1) {
+  private async adjustUserCounter(
+    userId: number,
+    type: AttendanceType,
+    delta: 1 | -1,
+  ) {
     if (type === AttendanceType.MISSION) {
       if (delta === 1) {
-        await this.userRepository.increment({ id: userId }, 'missionAttendanceCount', 1);
+        await this.userRepository.increment(
+          { id: userId },
+          'missionAttendanceCount',
+          1,
+        );
       } else {
-        const user = await this.userRepository.findOne({ where: { id: userId } });
+        const user = await this.userRepository.findOne({
+          where: { id: userId },
+        });
         if (!user) return;
         const next = Math.max(0, Number(user.missionAttendanceCount ?? 0) - 1);
-        await this.userRepository.update({ id: userId }, { missionAttendanceCount: next });
+        await this.userRepository.update(
+          { id: userId },
+          { missionAttendanceCount: next },
+        );
       }
       return;
     }
 
     if (delta === 1) {
-      await this.userRepository.increment({ id: userId }, 'trainingAttendanceCount', 1);
+      await this.userRepository.increment(
+        { id: userId },
+        'trainingAttendanceCount',
+        1,
+      );
     } else {
       const user = await this.userRepository.findOne({ where: { id: userId } });
       if (!user) return;
       const next = Math.max(0, Number(user.trainingAttendanceCount ?? 0) - 1);
-      await this.userRepository.update({ id: userId }, { trainingAttendanceCount: next });
+      await this.userRepository.update(
+        { id: userId },
+        { trainingAttendanceCount: next },
+      );
     }
   }
 
