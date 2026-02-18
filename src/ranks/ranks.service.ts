@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { Course } from '../users/entities/course.entity';
 import { RankCourseUnlock } from '../users/entities/rank-course-unlock.entity';
 import { Rank } from '../users/entities/rank.entity';
+import { UserDivision } from '../users/enums/user-division.enum';
 import { CreateRankDto } from './dto/create-rank.dto';
 import { CreateRankUnlockDto } from './dto/create-rank-unlock.dto';
 import { UpdateRankDto } from './dto/update-rank.dto';
@@ -37,6 +38,7 @@ export class RanksService {
   create(dto: CreateRankDto) {
     return this.rankRepository.save({
       name: dto.name,
+      division: dto.division ?? UserDivision.FENIX,
       sortOrder: dto.sortOrder ?? 0,
     });
   }
@@ -44,6 +46,7 @@ export class RanksService {
   findAll() {
     return this.rankRepository.find({
       order: {
+        division: 'ASC',
         sortOrder: 'ASC',
         id: 'ASC',
       },

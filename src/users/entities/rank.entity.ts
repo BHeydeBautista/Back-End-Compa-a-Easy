@@ -6,6 +6,7 @@ import {
 } from 'typeorm';
 import { RankCourseUnlock } from './rank-course-unlock.entity';
 import { User } from './user.entity';
+import { UserDivision } from '../enums/user-division.enum';
 
 @Entity()
 export class Rank {
@@ -14,6 +15,13 @@ export class Rank {
 
   @Column({ type: 'varchar', length: 80 })
   name: string;
+
+  @Column({
+    type: 'enum',
+    enum: UserDivision,
+    default: UserDivision.FENIX,
+  })
+  division: UserDivision;
 
   @Column({ type: 'int', default: 0 })
   sortOrder: number;
