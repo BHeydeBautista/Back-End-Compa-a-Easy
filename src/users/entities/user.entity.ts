@@ -29,6 +29,20 @@ export class User {
   @Column({ nullable: false, select: false })
   password: string;
 
+  // Default true to avoid locking out existing users when this column is added.
+  // New email/password registrations will explicitly set this to false until verified.
+  @Column({ type: 'boolean', default: true })
+  isEmailVerified: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  emailVerifiedAt?: Date | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true, select: false })
+  emailVerificationTokenHash?: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true, select: false })
+  emailVerificationTokenExpiresAt?: Date | null;
+
   @Column({
     type: 'enum',
     enum: UserRole,

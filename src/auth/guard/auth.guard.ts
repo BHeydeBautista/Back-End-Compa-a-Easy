@@ -6,12 +6,16 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
+import { UsersService } from '../../users/users.service';
 import type { JwtPayload } from '../types/jwt-payload.type';
 import type { RequestWithAuth } from '../types/authenticated-request.type';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithAuth>();
@@ -23,7 +27,17 @@ export class AuthGuard implements CanActivate {
 
     try {
       const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
-      request.user = payload;
+      const user = await this.usersService.findAuthUserById(payload.sub);
+      if (!user || user.deletedAt) {
+        throw new UnauthorizedException();
+      }
+
+      request.user = {
+        ...payload,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      };
     } catch {
       throw new UnauthorizedException();
     }

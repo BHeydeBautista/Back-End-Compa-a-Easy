@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { EmailService } from './email.service';
 
 type ExpiresIn = NonNullable<
   NonNullable<JwtModuleOptions['signOptions']>['expiresIn']
@@ -40,6 +41,6 @@ type ExpiresIn = NonNullable<
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, EmailService],
 })
 export class AuthModule {}

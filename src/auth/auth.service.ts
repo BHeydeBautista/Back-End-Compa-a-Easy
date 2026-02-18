@@ -13,13 +13,23 @@ import type { JwtPayload } from './types/jwt-payload.type';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { EmailService } from './email.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
+
+  private hashToken(token: string) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  private generateVerificationToken() {
+    return crypto.randomBytes(32).toString('base64url');
+  }
 
   private async signUser(user: {
     id: number;
@@ -54,13 +64,75 @@ export class AuthService {
     }
 
     const passwordHash = await bcryptjs.hash(registerDto.password, 10);
+
+    const token = this.generateVerificationToken();
+    const tokenHash = this.hashToken(token);
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24h
+
     const created = await this.usersService.create({
       name: registerDto.name,
       email: registerDto.email,
       password: passwordHash,
+      isEmailVerified: false,
+      emailVerifiedAt: null,
+      emailVerificationTokenHash: tokenHash,
+      emailVerificationTokenExpiresAt: expiresAt,
     });
 
-    return created;
+    await this.emailService.sendEmailVerification(created.email, token, created.name);
+
+    return {
+      ok: true,
+      message: 'Cuenta creada. Revisa tu correo para verificar tu email.',
+    };
+  }
+
+  async verifyEmail(token: string) {
+    const tokenHash = this.hashToken(token);
+
+    const match = await this.usersService.findOneByEmailVerificationTokenHash(
+      tokenHash,
+    );
+
+    if (!match) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+
+    if (match.isEmailVerified) {
+      return { ok: true };
+    }
+
+    const expiresAt = match.emailVerificationTokenExpiresAt as Date | null;
+    if (!expiresAt || expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+
+    await this.usersService.markEmailVerified(match.id);
+
+    return { ok: true };
+  }
+
+  async resendEmailVerification(email: string) {
+    // Always return ok to avoid account enumeration.
+    const user = await this.usersService.findOneByEmail(email);
+    if (!user) {
+      return { ok: true };
+    }
+    if (user.isEmailVerified) {
+      return { ok: true };
+    }
+
+    const token = this.generateVerificationToken();
+    const tokenHash = this.hashToken(token);
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+    await this.usersService.setEmailVerificationToken(user.id, {
+      tokenHash,
+      expiresAt,
+    });
+
+    await this.emailService.sendEmailVerification(user.email, token, user.name);
+    return { ok: true };
   }
 
   async login(loginDto: LoginDto) {
@@ -78,6 +150,10 @@ export class AuthService {
     );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid Credentials');
+    }
+
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException('Email not verified');
     }
 
     return this.signUser(user);
@@ -119,7 +195,21 @@ export class AuthService {
         name: displayName,
         email,
         password: passwordHash,
+        isEmailVerified: true,
+        emailVerifiedAt: new Date(),
       });
+    } else if (!user.isEmailVerified) {
+      // Google guarantees email_verified=true here.
+      await this.usersService.markEmailVerified(user.id);
+      const refreshed = await this.usersService.findOneByEmail(email);
+      if (!refreshed) {
+        throw new BadRequestException('User not found after verification');
+      }
+      user = refreshed;
+    }
+
+    if (!user) {
+      throw new BadRequestException('User not available');
     }
 
     return this.signUser(user);

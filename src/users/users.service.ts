@@ -14,6 +14,13 @@ import { UserRole } from './enums/user-role.enum';
 import { User } from './entities/user.entity';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 
+type InternalCreateUserPatch = {
+  isEmailVerified?: boolean;
+  emailVerifiedAt?: Date | null;
+  emailVerificationTokenHash?: string | null;
+  emailVerificationTokenExpiresAt?: Date | null;
+};
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -21,7 +28,7 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async create(createUserDto: CreateUserDto) {
+  async create(createUserDto: CreateUserDto & InternalCreateUserPatch) {
     const email = createUserDto.email?.trim().toLowerCase();
     const existing = await this.userRepository.findOne({ where: { email } });
     if (existing) {
@@ -34,7 +41,7 @@ export class UsersService {
     }
 
     const user = await this.userRepository.save({
-      ...createUserDto,
+      ...(createUserDto as any),
       email,
       password,
       role: createUserDto.role ?? UserRole.USER,
@@ -42,6 +49,14 @@ export class UsersService {
 
     delete (user as any).password;
     return user;
+  }
+
+  async findAuthUserById(id: number) {
+    if (!id || !Number.isFinite(id) || id <= 0) return null;
+    return this.userRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
   }
 
   findOneByEmail(email: string, opts?: { withPassword?: boolean }) {
@@ -56,6 +71,41 @@ export class UsersService {
     }
 
     return this.userRepository.findOne({ where: { email: normalizedEmail } });
+  }
+
+  async findOneByEmailVerificationTokenHash(tokenHash: string) {
+    if (!tokenHash) return null;
+    return this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.emailVerificationTokenHash')
+      .addSelect('user.emailVerificationTokenExpiresAt')
+      .where('user.emailVerificationTokenHash = :tokenHash', { tokenHash })
+      .getOne();
+  }
+
+  async setEmailVerificationToken(
+    userId: number,
+    patch: { tokenHash: string; expiresAt: Date },
+  ) {
+    await this.userRepository.update(
+      { id: userId },
+      {
+        emailVerificationTokenHash: patch.tokenHash,
+        emailVerificationTokenExpiresAt: patch.expiresAt,
+      },
+    );
+  }
+
+  async markEmailVerified(userId: number) {
+    await this.userRepository.update(
+      { id: userId },
+      {
+        isEmailVerified: true,
+        emailVerifiedAt: new Date(),
+        emailVerificationTokenHash: null,
+        emailVerificationTokenExpiresAt: null,
+      },
+    );
   }
 
   async findAll() {
