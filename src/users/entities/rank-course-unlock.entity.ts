@@ -15,10 +15,14 @@ export class RankCourseUnlock {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Rank, (rank) => rank.unlockedCourses, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Rank, (rank) => rank.unlockedCourses, {
+    onDelete: 'CASCADE',
+  })
   rank: Rank;
 
-  @ManyToOne(() => Course, (course) => course.rankUnlocks, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Course, (course) => course.rankUnlocks, {
+    onDelete: 'CASCADE',
+  })
   course: Course;
 
   @CreateDateColumn()

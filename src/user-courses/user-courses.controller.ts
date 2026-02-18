@@ -22,7 +22,10 @@ export class UserCoursesController {
   private assertSelfOrSuperAdmin(requestUser: any, targetUserId: number) {
     const requesterIdRaw = requestUser?.sub;
     const requesterRole = requestUser?.role as UserRole | undefined;
-    const requesterId = typeof requesterIdRaw === 'string' ? Number(requesterIdRaw) : requesterIdRaw;
+    const requesterId =
+      typeof requesterIdRaw === 'string'
+        ? Number(requesterIdRaw)
+        : requesterIdRaw;
 
     if (requesterRole === UserRole.SUPER_ADMIN) {
       return;

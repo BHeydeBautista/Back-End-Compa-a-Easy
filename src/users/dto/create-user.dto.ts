@@ -1,5 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsEnum, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { UserCategory } from '../enums/user-category.enum';
 import { UserDivision } from '../enums/user-division.enum';
 import { UserRole } from '../enums/user-role.enum';

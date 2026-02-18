@@ -14,10 +14,14 @@ export class UserApprovedCourse {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, (user) => user.approvedCourses, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.approvedCourses, {
+    onDelete: 'CASCADE',
+  })
   user: User;
 
-  @ManyToOne(() => Course, (course) => course.approvals, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Course, (course) => course.approvals, {
+    onDelete: 'CASCADE',
+  })
   course: Course;
 
   @CreateDateColumn()

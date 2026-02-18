@@ -9,7 +9,12 @@ import { UserCoursesService } from './user-courses.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Course, UserApprovedCourse, RankCourseUnlock]),
+    TypeOrmModule.forFeature([
+      User,
+      Course,
+      UserApprovedCourse,
+      RankCourseUnlock,
+    ]),
   ],
   controllers: [UserCoursesController],
   providers: [UserCoursesService],

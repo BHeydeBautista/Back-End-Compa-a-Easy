@@ -1,4 +1,10 @@
-import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { CourseType } from '../enums/course-type.enum';
 import { RankCourseUnlock } from './rank-course-unlock.entity';
 import { UserApprovedCourse } from './user-approved-course.entity';

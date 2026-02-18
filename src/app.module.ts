@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { CoursesModule } from './courses/courses.module';
 import { RanksModule } from './ranks/ranks.module';
 import { UserCoursesModule } from './user-courses/user-courses.module';
@@ -82,6 +83,7 @@ import { UsersModule } from './users/users.module';
     }),
     UsersModule,
     AuthModule,
+    AttendanceModule,
     RanksModule,
     CoursesModule,
     UserCoursesModule,

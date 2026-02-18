@@ -19,7 +19,12 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  private async signUser(user: { id: number; name: string; email: string; role?: any }) {
+  private async signUser(user: {
+    id: number;
+    name: string;
+    email: string;
+    role?: any;
+  }) {
     const payload = {
       email: user.email,
       sub: user.id,
@@ -65,7 +70,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid Credentials');
     }
 
-    const isPasswordValid = await bcryptjs.compare(loginDto.password, user.password);
+    const isPasswordValid = await bcryptjs.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid Credentials');
     }
@@ -100,7 +108,8 @@ export class AuthService {
 
     let user = await this.usersService.findOneByEmail(email);
     if (!user) {
-      const displayName = (name && String(name).trim()) || email.split('@')[0] || 'Usuario';
+      const displayName =
+        (name && String(name).trim()) || email.split('@')[0] || 'Usuario';
       const randomPassword = crypto.randomBytes(48).toString('base64url');
       const passwordHash = await bcryptjs.hash(randomPassword, 10);
 

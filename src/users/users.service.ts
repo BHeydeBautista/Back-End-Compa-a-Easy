@@ -87,7 +87,10 @@ export class UsersService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {
-    const user = await this.userRepository.findOne({ where: { id }, withDeleted: true });
+    const user = await this.userRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -121,7 +124,10 @@ export class UsersService {
   }
 
   async restore(id: number) {
-    const user = await this.userRepository.findOne({ where: { id }, withDeleted: true });
+    const user = await this.userRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -152,10 +158,14 @@ export class UsersService {
       return trimmed.length ? trimmed : null;
     };
 
-    if (dto.steamName !== undefined) patch.steamName = normalizeOptional(dto.steamName) as any;
-    if (dto.whatsappName !== undefined) patch.whatsappName = normalizeOptional(dto.whatsappName) as any;
-    if (dto.phoneNumber !== undefined) patch.phoneNumber = normalizeOptional(dto.phoneNumber) as any;
-    if (dto.discord !== undefined) patch.discord = normalizeOptional(dto.discord) as any;
+    if (dto.steamName !== undefined)
+      patch.steamName = normalizeOptional(dto.steamName) as any;
+    if (dto.whatsappName !== undefined)
+      patch.whatsappName = normalizeOptional(dto.whatsappName) as any;
+    if (dto.phoneNumber !== undefined)
+      patch.phoneNumber = normalizeOptional(dto.phoneNumber) as any;
+    if (dto.discord !== undefined)
+      patch.discord = normalizeOptional(dto.discord) as any;
 
     if (Object.keys(patch).length === 0) {
       return this.findOne(id);
@@ -203,7 +213,12 @@ export class UsersService {
     });
 
     return (users ?? [])
-      .filter((u) => Boolean(u?.category) && Boolean(u?.division) && Boolean(u?.rank?.name))
+      .filter(
+        (u) =>
+          Boolean(u?.category) &&
+          Boolean(u?.division) &&
+          Boolean(u?.rank?.name),
+      )
       .map((u) => ({
         id: u.id,
         name: u.name,
