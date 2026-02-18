@@ -8,6 +8,8 @@ import * as bcryptjs from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UserCategory } from './enums/user-category.enum';
+import { UserDivision } from './enums/user-division.enum';
 import { UserRole } from './enums/user-role.enum';
 import { User } from './entities/user.entity';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
@@ -213,17 +215,13 @@ export class UsersService {
     });
 
     return (users ?? [])
-      .filter(
-        (u) =>
-          Boolean(u?.category) &&
-          Boolean(u?.division) &&
-          Boolean(u?.rank?.name),
-      )
+      .filter((u) => u?.role !== UserRole.SUPER_ADMIN)
+      .filter((u) => Boolean(u?.rank?.name))
       .map((u) => ({
         id: u.id,
         name: u.name,
-        category: u.category ?? null,
-        division: u.division ?? null,
+        category: u.category ?? UserCategory.ENLISTADO,
+        division: u.division ?? UserDivision.FENIX,
         rank: u.rank ? { id: u.rank.id, name: u.rank.name } : null,
       }));
   }
