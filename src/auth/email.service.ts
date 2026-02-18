@@ -24,6 +24,7 @@ export class EmailService {
   private transporter: Transporter | null = null;
   private loggedSmtpConfig = false;
   private loggedResendConfig = false;
+  private loggedResendMissing = false;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -137,20 +138,29 @@ export class EmailService {
       `.trim();
 
     // Prefer Resend (HTTP) when configured (hosting providers often block SMTP).
-    const resend = await this.sendViaResend({
-      toEmail,
-      subject,
-      text,
-      html,
-    }).catch((err) => {
+    try {
+      const resend = await this.sendViaResend({
+        toEmail,
+        subject,
+        text,
+        html,
+      });
+
+      if (resend.ok) {
+        return { ok: true };
+      }
+
+      if (!this.loggedResendMissing) {
+        this.loggedResendMissing = true;
+        this.logger.warn(
+          'Resend is not configured. Set RESEND_API_KEY and RESEND_FROM to avoid SMTP blocks on some hosts (e.g. Render). Falling back to SMTP.',
+        );
+      }
+    } catch (err) {
       this.logger.error(
         `Resend send failed (to=${toEmail}) message=${String((err as any)?.message ?? err)}`,
       );
-      throw err;
-    });
-
-    if (resend.ok) {
-      return { ok: true };
+      // Continue to SMTP fallback.
     }
 
     const from = this.config.get<string>('SMTP_FROM');
