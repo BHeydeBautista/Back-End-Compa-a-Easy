@@ -2,6 +2,22 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer, { type Transporter } from 'nodemailer';
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  if (!Number.isFinite(ms) || ms <= 0) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error(`${label}_TIMEOUT`)), ms);
+    promise
+      .then((v) => {
+        clearTimeout(id);
+        resolve(v);
+      })
+      .catch((err) => {
+        clearTimeout(id);
+        reject(err);
+      });
+  });
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -51,6 +67,7 @@ export class EmailService {
 
     const from = this.config.get<string>('SMTP_FROM');
     const isProd = (this.config.get<string>('NODE_ENV') ?? 'development') === 'production';
+    const sendTimeoutMs = Number(this.config.get<string>('SMTP_SEND_TIMEOUT_MS') ?? 20_000);
 
     const transporter = this.ensureTransporter();
 
@@ -66,7 +83,8 @@ export class EmailService {
     const safeName = (name ?? '').trim();
     const greeting = safeName ? `Hola ${safeName},` : 'Hola,';
 
-    await transporter.sendMail({
+    await withTimeout(
+      transporter.sendMail({
       from,
       to: toEmail,
       subject: 'Verifica tu correo',
@@ -77,7 +95,10 @@ export class EmailService {
         <p><a href="${link}">${link}</a></p>
         <p>Si tú no creaste esta cuenta, puedes ignorar este email.</p>
       `.trim(),
-    });
+      }),
+      sendTimeoutMs,
+      'SMTP_SENDMAIL',
+    );
 
     return { ok: true };
   }
