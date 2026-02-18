@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { GoogleLoginDto } from './dto/google-login.dto';
+import { MicrosoftLoginDto } from './dto/microsoft-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
@@ -44,6 +45,11 @@ export class AuthController {
   @Post('google')
   google(@Body() dto: GoogleLoginDto) {
     return this.authService.googleLogin(dto.idToken);
+  }
+
+  @Post('microsoft')
+  microsoft(@Body() dto: MicrosoftLoginDto) {
+    return this.authService.microsoftLogin(dto.idToken);
   }
 
   @Get('profile')

@@ -25,6 +25,8 @@ export class EmailService {
   private loggedSmtpConfig = false;
   private loggedResendConfig = false;
   private loggedResendMissing = false;
+  private loggedBrevoConfig = false;
+  private loggedBrevoMissing = false;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -122,6 +124,64 @@ export class EmailService {
     }
   }
 
+  private async sendViaBrevo(params: {
+    toEmail: string;
+    subject: string;
+    text: string;
+    html: string;
+  }) {
+    const apiKey = this.config.get<string>('BREVO_API_KEY');
+    const fromEmail = this.config.get<string>('BREVO_FROM_EMAIL');
+    const fromName = this.config.get<string>('BREVO_FROM_NAME') ?? 'Compañia Easy';
+    if (!apiKey || !fromEmail) {
+      return { ok: false as const, configured: false as const };
+    }
+
+    if (!this.loggedBrevoConfig) {
+      this.loggedBrevoConfig = true;
+      this.logger.log(
+        `Brevo configured: apiKey=[set] fromEmail=${fromEmail ? '[set]' : '[missing]'}`,
+      );
+    }
+
+    const timeoutMs = Number(
+      this.config.get<string>('BREVO_TIMEOUT_MS') ?? 15_000,
+    );
+
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': apiKey,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender: {
+            name: fromName,
+            email: fromEmail,
+          },
+          to: [{ email: params.toEmail }],
+          subject: params.subject,
+          htmlContent: params.html,
+          textContent: params.text,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Brevo failed: ${res.status} ${body || res.statusText}`);
+      }
+
+      return { ok: true as const, configured: true as const };
+    } finally {
+      clearTimeout(id);
+    }
+  }
+
   async sendEmailVerification(toEmail: string, token: string, name?: string) {
     const frontend = this.getFrontendBaseUrl();
     const link = `${frontend}/auth/verify-email?token=${encodeURIComponent(token)}`;
@@ -136,6 +196,32 @@ export class EmailService {
         <p><a href="${link}">${link}</a></p>
         <p>Si tú no creaste esta cuenta, puedes ignorar este email.</p>
       `.trim();
+
+    // Prefer Brevo (HTTP) when configured (works on hosts that block SMTP, and can be used without owning a domain).
+    try {
+      const brevo = await this.sendViaBrevo({
+        toEmail,
+        subject,
+        text,
+        html,
+      });
+
+      if (brevo.ok) {
+        return { ok: true };
+      }
+
+      if (!this.loggedBrevoMissing) {
+        this.loggedBrevoMissing = true;
+        this.logger.warn(
+          'Brevo is not configured. Set BREVO_API_KEY and BREVO_FROM_EMAIL to send emails via HTTPS without needing SMTP.',
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Brevo send failed (to=${toEmail}) message=${String((err as any)?.message ?? err)}`,
+      );
+      // Continue to other providers.
+    }
 
     // Prefer Resend (HTTP) when configured (hosting providers often block SMTP).
     try {

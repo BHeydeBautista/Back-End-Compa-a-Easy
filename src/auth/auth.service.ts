@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import { OAuth2Client } from 'google-auth-library';
 import * as crypto from 'node:crypto';
 import { Repository } from 'typeorm';
 import { QueryFailedError } from 'typeorm';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/enums/user-role.enum';
 import type { JwtPayload } from './types/jwt-payload.type';
@@ -79,6 +81,17 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
+    const enabledEnv = (process.env.AUTH_PASSWORD_REGISTRATION_ENABLED ?? '').toLowerCase();
+    const passwordRegistrationEnabled = enabledEnv
+      ? enabledEnv === 'true' || enabledEnv === '1'
+      : (process.env.NODE_ENV ?? 'development') !== 'production';
+
+    if (!passwordRegistrationEnabled) {
+      throw new ForbiddenException(
+        'Registro manual deshabilitado. Usa Google o Microsoft.',
+      );
+    }
+
     const email = String(registerDto.email ?? '')
       .trim()
       .toLowerCase();
@@ -386,6 +399,70 @@ export class AuthService {
 
     if (!user) {
       throw new BadRequestException('User not available');
+    }
+
+    return this.signUser(user);
+  }
+
+  async microsoftLogin(idToken: string) {
+    const clientId = process.env.MICROSOFT_CLIENT_ID;
+    if (!clientId) {
+      throw new BadRequestException('Microsoft login not configured');
+    }
+
+    const tenant = process.env.MICROSOFT_TENANT_ID ?? 'common';
+    const jwks = createRemoteJWKSet(
+      new URL(`https://login.microsoftonline.com/${tenant}/discovery/v2.0/keys`),
+    );
+
+    let payload: any;
+    try {
+      const verified = await jwtVerify(idToken, jwks, {
+        audience: clientId,
+      });
+      payload = verified.payload;
+    } catch {
+      throw new BadRequestException('Invalid Microsoft token');
+    }
+
+    const rawEmail =
+      (payload?.email as string | undefined) ||
+      (payload?.preferred_username as string | undefined) ||
+      (payload?.upn as string | undefined);
+    const email = rawEmail ? String(rawEmail).trim().toLowerCase() : '';
+
+    if (!email || !email.includes('@')) {
+      throw new BadRequestException('Microsoft account has no email');
+    }
+
+    const nameFromToken =
+      (payload?.name as string | undefined) ||
+      (payload?.given_name as string | undefined) ||
+      (email.split('@')[0] ?? 'Usuario');
+
+    let user = await this.usersService.findOneByEmail(email);
+    if (!user) {
+      const randomPassword = crypto.randomBytes(48).toString('base64url');
+      const passwordHash = await bcryptjs.hash(randomPassword, 10);
+
+      user = await this.usersService.create({
+        name: String(nameFromToken).trim() || 'Usuario',
+        email,
+        password: passwordHash,
+        isEmailVerified: true,
+        emailVerifiedAt: new Date(),
+      });
+    } else if (!user.isEmailVerified) {
+      await this.usersService.markEmailVerified(user.id);
+      const refreshed = await this.usersService.findOneByEmail(email);
+      if (!refreshed) {
+        throw new BadRequestException('User not found after verification');
+      }
+      user = refreshed;
+    }
+
+    if (!user) {
+      throw new BadRequestException('User not found');
     }
 
     return this.signUser(user);

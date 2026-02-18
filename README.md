@@ -36,14 +36,21 @@ $ npm install
 - Default port is `3001` (so it doesn't conflict with Next.js dev server on `3000`).
 - For local dev, set `CORS_ORIGIN=http://localhost:3000` (see `.env.example`).
 
-## Email verification (Resend or SMTP)
+## Email verification (Brevo / Resend / SMTP)
 
 Email/password registrations now require email verification before login.
 
 Backend env vars:
 
 - `FRONTEND_URL` (example: `http://localhost:3000`) used to build the verification link.
-- Recommended in production/hosting (Resend, HTTP-based):
+
+- Recommended in production/hosting (Brevo, HTTP-based; works on hosts that block SMTP and can be used without owning a domain):
+  - `BREVO_API_KEY`
+  - `BREVO_FROM_EMAIL` (must be a verified sender email inside Brevo)
+  - `BREVO_FROM_NAME` (optional)
+  - `BREVO_TIMEOUT_MS` (optional, default `15000`)
+
+- Alternative in production/hosting (Resend, HTTP-based; requires sending from a verified domain):
   - `RESEND_API_KEY`
   - `RESEND_FROM` (example: `"Easy <no-reply@tu-dominio.com>"`)
   - `RESEND_TIMEOUT_MS` (optional, default `15000`)
