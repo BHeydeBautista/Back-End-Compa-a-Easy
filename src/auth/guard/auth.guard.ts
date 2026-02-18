@@ -32,6 +32,10 @@ export class AuthGuard implements CanActivate {
         throw new UnauthorizedException();
       }
 
+      if (!user.isEmailVerified) {
+        throw new UnauthorizedException('Email not verified');
+      }
+
       request.user = {
         ...payload,
         email: user.email,

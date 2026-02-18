@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { JwtModule, type JwtModuleOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { EmailService } from './email.service';
+import { PendingRegistration } from './entities/pending-registration.entity';
 
 type ExpiresIn = NonNullable<
   NonNullable<JwtModuleOptions['signOptions']>['expiresIn']
@@ -13,6 +15,7 @@ type ExpiresIn = NonNullable<
 @Module({
   imports: [
     UsersModule,
+    TypeOrmModule.forFeature([PendingRegistration]),
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],
