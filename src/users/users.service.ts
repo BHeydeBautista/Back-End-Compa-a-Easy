@@ -279,8 +279,9 @@ export class UsersService {
     });
 
     return (users ?? [])
-      .filter((u) => u?.role !== UserRole.SUPER_ADMIN)
-      .filter((u) => Boolean(u?.rank?.name))
+      // Show members that are part of the hierarchy (have rank) OR explicitly configured a public name.
+      // This allows admins (e.g. SUPER_ADMIN) to appear if they opted-in by setting a publicName.
+      .filter((u) => Boolean(u?.rank?.name) || Boolean(u?.publicName?.trim()))
       .map((u) => ({
         id: u.id,
         name: u.publicName ?? u.name,
