@@ -4,7 +4,6 @@ import { Course } from '../users/entities/course.entity';
 import { CoursePrerequisite } from '../users/entities/course-prerequisite.entity';
 import { CourseInstructor } from '../users/entities/course-instructor.entity';
 import { User } from '../users/entities/user.entity';
-import { SeedModule } from '../seed/seed.module';
 import { CoursesController } from './courses.controller';
 import { InstructorsController } from './instructors.controller';
 import { CoursesService } from './courses.service';
@@ -17,7 +16,6 @@ import { CoursesService } from './courses.service';
       CourseInstructor,
       User,
     ]),
-    SeedModule,
   ],
   controllers: [CoursesController, InstructorsController],
   providers: [CoursesService],
