@@ -1,0 +1,50 @@
+export type SeedCourse = {
+  code: string;
+  name: string;
+};
+
+// Fuente: lista provista por el usuario (Feb 2026)
+// Nota: algunos cursos quedaron con nombre pendiente.
+export const COURSES_SEED: SeedCourse[] = [
+  { code: 'C.B.I', name: 'CURSO BASICO DE INFANTERIA' },
+  { code: 'C.A.I', name: 'CURSO AVANZADO DE INFANTERÍA' },
+  { code: 'C.O.S', name: 'CURSO DE ORIENTACION Y SUPERVIVENCIA' },
+  { code: 'C.L', name: 'CURSO DE LIDERAZGO' },
+  { code: 'C.R.L', name: 'CURSO DE RADIO LARGA' },
+  { code: 'C.M.C', name: 'CURSO DE MEDICO DE COMBATE' },
+  { code: 'C.A.C', name: 'CURSO DE AMETRALLADOR DE COMBATE' },
+  { code: 'C.P.C', name: 'CURSO DE PARACAIDISTA DE COMBATE' },
+  { code: 'C.C.E', name: 'CURSO DE CONDUCTOR ESPECIALIZADO' },
+  { code: 'C.A.T', name: 'CURSO DE ANTITANQUE Y ANTIAEREO' },
+  { code: 'C.I.C', name: 'CURSO DE INGENIERO DE COMBATE' },
+  { code: 'C.E.E', name: 'CURSO DE EXPERTO EN EXPLOSIVOS' },
+  { code: 'C.O.U', name: 'CURSO DE OPERACIONES URBANAS' },
+  { code: 'C.T.S', name: 'CURSO DE TIRADOR SELECTO (SHARPSHOTER)' },
+  { code: 'C.A.P', name: 'CURSO DE AMETRALLADOR PESADO' },
+  { code: 'C.G.C', name: 'CURSO DE GRANADERO DE COMBATE' },
+  { code: 'C.T.D', name: 'CURSO DE TIRADOR DESIGNADO' },
+  { code: 'C.O.B', name: 'CURSO BÁSICO DE OBSERVADOR' },
+  { code: 'C.O.A', name: 'CURSO OBSERVADOR AVANZADO' },
+  { code: 'C.F.E.C', name: 'CURSO FUERZA ESPECIAL CERBERUS' },
+  { code: 'C.R.A', name: 'CURSO DE AVANCE Y REPLIEGUE' },
+  { code: 'C.M.O', name: 'CURSO DE MORTERISTA' },
+  { code: 'C.A.T.P', name: 'CURSO DE ANTITANQUE Y ANTIAEREO PESADO' },
+  { code: 'C.R.R', name: 'CURSO DE RESCATE DE REHENES' },
+  { code: 'C.L.T', name: 'CURSO DE LIDERAZGO TACTICO' },
+  { code: 'C.L.E', name: 'CURSO DE LIDERAZGO ESTRATEGICO' },
+  { code: 'C.L.E.II', name: 'CURSO DE LIDERAZGO ESTRATEGICO 2' },
+  { code: 'C.L.C', name: 'CURSO DE LIDERAZGO CONJUNTO' },
+  { code: 'C.F.T', name: 'CURSO DE FRANCOTIRADOR' },
+  { code: 'C.O.P', name: 'PENDIENTE (definir nombre largo)' },
+  { code: 'C.A.E', name: 'CURSO DE ASALTO AÉREO' },
+  { code: 'C.E.R', name: 'PENDIENTE (definir nombre largo)' },
+  { code: 'C.O.E', name: 'PENDIENTE (definir nombre largo)' },
+  { code: 'C.O.H', name: 'PENDIENTE (definir nombre largo)' },
+  { code: 'C.O.M', name: 'CURSO DE OPERACIONES MARITIMAS' },
+  { code: 'C.A.R', name: 'CURSO DE ALA ROTATIVA' },
+  { code: 'C.A.F', name: 'CURSO DE ALA FIJA' },
+  { code: 'C.A.A', name: 'CURSO DE APOYO AEREO' },
+  { code: 'C.P.D', name: 'CURSO DE PILOTO DE DRONES' },
+  { code: 'C.V.P', name: 'CURSO DE VEHICULO PESADOS' },
+  { code: 'C.V.C', name: 'CURSO DE VEHICULO DE COMBATE' },
+];
