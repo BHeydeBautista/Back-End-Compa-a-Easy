@@ -22,6 +22,24 @@ type InternalCreateUserPatch = {
   emailVerificationTokenExpiresAt?: Date | null;
 };
 
+const normalizeAscii = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const inferCategoryFromRankName = (
+  rankName: string | null | undefined,
+): UserCategory => {
+  const normalized = normalizeAscii(String(rankName ?? '').trim());
+  if (!normalized) return UserCategory.ENLISTADO;
+  if (normalized.includes('capitan')) return UserCategory.OFICIAL;
+  if (normalized.includes('sargento') || normalized.includes('cabo')) {
+    return UserCategory.SUBOFICIAL;
+  }
+  return UserCategory.ENLISTADO;
+};
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -273,18 +291,31 @@ export class UsersService {
   }
 
   async listPublicMembers() {
-    const users = await this.userRepository.find({
-      relations: { rank: true },
-      order: { id: 'ASC' },
-    });
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.rank', 'rank')
+      .select([
+        'user.id',
+        'user.name',
+        'user.publicName',
+        'user.category',
+        'user.division',
+        'user.avatarPublicId',
+        'rank.id',
+        'rank.name',
+      ])
+      .where('rank.id IS NOT NULL')
+      .orderBy('user.id', 'ASC')
+      .getMany();
 
     return (users ?? [])
-      // Only show active personnel that has an assigned rank.
-      .filter((u) => Boolean(u?.rank?.name))
       .map((u) => ({
         id: u.id,
         name: u.publicName ?? u.name,
-        category: u.category ?? UserCategory.ENLISTADO,
+        category: (() => {
+          const inferred = inferCategoryFromRankName(u.rank?.name);
+          return u.category && u.category === inferred ? u.category : inferred;
+        })(),
         division: u.division ?? UserDivision.FENIX,
         rank: u.rank ? { id: u.rank.id, name: u.rank.name } : null,
         avatarPublicId: u.avatarPublicId ?? null,
