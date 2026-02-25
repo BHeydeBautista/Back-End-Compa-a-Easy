@@ -23,6 +23,11 @@ import type { AuthenticatedRequest } from './types/authenticated-request.type';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get('warmup')
+  warmup() {
+    return this.authService.warmup();
+  }
+
   @Post('register')
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);

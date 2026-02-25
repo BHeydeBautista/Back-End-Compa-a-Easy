@@ -27,6 +27,12 @@ import { PendingRegistration } from './entities/pending-registration.entity';
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  private googleClient: OAuth2Client | null = null;
+  private microsoftJwks:
+    | ReturnType<typeof createRemoteJWKSet>
+    | null = null;
+  private microsoftJwksTenant: string | null = null;
+
   private isMissingPendingTableError(err: unknown) {
     // Postgres undefined_table is 42P01.
     if (err instanceof QueryFailedError) {
@@ -45,6 +51,74 @@ export class AuthService {
     @InjectRepository(PendingRegistration)
     private readonly pendingRepo: Repository<PendingRegistration>,
   ) {}
+
+  async warmup() {
+    // Touch the DB connection and load auth dependencies to reduce OAuth cold-start latency.
+    // Best-effort only.
+    try {
+      await this.usersService.findAuthUserById(1);
+    } catch {
+      // ignore
+    }
+
+    // Also prime OAuth verifiers so their first use doesn't block the login flow.
+    try {
+      const googleClientId = process.env.GOOGLE_CLIENT_ID;
+      if (googleClientId && !this.googleClient) {
+        this.googleClient = new OAuth2Client(googleClientId);
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      const clientId = process.env.MICROSOFT_CLIENT_ID;
+      if (clientId) {
+        const tenant = process.env.MICROSOFT_TENANT_ID ?? 'common';
+        if (!this.microsoftJwks || this.microsoftJwksTenant !== tenant) {
+          this.microsoftJwksTenant = tenant;
+          this.microsoftJwks = createRemoteJWKSet(
+            new URL(
+              `https://login.microsoftonline.com/${tenant}/discovery/v2.0/keys`,
+            ),
+          );
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return { ok: true };
+  }
+
+  private getGoogleClient() {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      throw new BadRequestException('Google login not configured');
+    }
+
+    if (!this.googleClient) {
+      this.googleClient = new OAuth2Client(clientId);
+    }
+    return { clientId, client: this.googleClient };
+  }
+
+  private getMicrosoftJwks() {
+    const clientId = process.env.MICROSOFT_CLIENT_ID;
+    if (!clientId) {
+      throw new BadRequestException('Microsoft login not configured');
+    }
+
+    const tenant = process.env.MICROSOFT_TENANT_ID ?? 'common';
+    if (!this.microsoftJwks || this.microsoftJwksTenant !== tenant) {
+      this.microsoftJwksTenant = tenant;
+      this.microsoftJwks = createRemoteJWKSet(
+        new URL(`https://login.microsoftonline.com/${tenant}/discovery/v2.0/keys`),
+      );
+    }
+
+    return { clientId, jwks: this.microsoftJwks };
+  }
 
   private hashToken(token: string) {
     return crypto.createHash('sha256').update(token).digest('hex');
@@ -349,12 +423,7 @@ export class AuthService {
   }
 
   async googleLogin(idToken: string) {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      throw new BadRequestException('Google login not configured');
-    }
-
-    const googleClient = new OAuth2Client(clientId);
+    const { clientId, client: googleClient } = this.getGoogleClient();
 
     const ticket = await googleClient.verifyIdToken({
       idToken,
@@ -405,15 +474,7 @@ export class AuthService {
   }
 
   async microsoftLogin(idToken: string) {
-    const clientId = process.env.MICROSOFT_CLIENT_ID;
-    if (!clientId) {
-      throw new BadRequestException('Microsoft login not configured');
-    }
-
-    const tenant = process.env.MICROSOFT_TENANT_ID ?? 'common';
-    const jwks = createRemoteJWKSet(
-      new URL(`https://login.microsoftonline.com/${tenant}/discovery/v2.0/keys`),
-    );
+    const { clientId, jwks } = this.getMicrosoftJwks();
 
     let payload: any;
     try {
